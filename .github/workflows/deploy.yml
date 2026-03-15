@@ -1,0 +1,161 @@
+name: Deploy RAG Pipeline Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      branch:
+        description: 'Git branch to deploy from'
+        required: true
+        default: main
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+  TF_VAR_state_bucket_name: opensearch-project-${{ inputs.environment }}-tf-state
+  TF_VAR_lock_table_name: opensearch-project-${{ inputs.environment }}-tf-lock
+  TF_VAR_bucket_name: opensearch-project-${{ inputs.environment }}-bucket
+  TF_VAR_collection_name: opensearch-project-${{ inputs.environment }}-collection
+  TF_VAR_knowledge_base_name: opensearch-project-${{ inputs.environment }}-kb
+  TF_VAR_search_lambda_name: opensearch-project-${{ inputs.environment }}-search
+  TF_VAR_suggestions_lambda_name: opensearch-project-${{ inputs.environment }}-suggestions
+  TF_VAR_rag_lambda_name: opensearch-project-${{ inputs.environment }}-rag
+  TF_VAR_indexer_lambda_name: opensearch-project-${{ inputs.environment }}-indexer
+  TF_VAR_api_name: opensearch-project-${{ inputs.environment }}-api
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+        continue-on-error: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+        continue-on-error: false
+
+      - name: Deploy backend module
+        run: |
+          cd terraform/backend
+          terraform init \
+            -backend-config="bucket=${{ env.TF_VAR_state_bucket_name }}" \
+            -backend-config="key=backend/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.TF_VAR_lock_table_name }}"
+          terraform apply -auto-approve
+          echo "BACKEND_STATE_BUCKET=$(terraform output -raw state_bucket_name)" >> $GITHUB_ENV
+          echo "BACKEND_LOCK_TABLE=$(terraform output -raw lock_table_name)" >> $GITHUB_ENV
+        continue-on-error: false
+
+      - name: Deploy S3 module
+        run: |
+          cd terraform/s3
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_STATE_BUCKET }}" \
+            -backend-config="key=s3/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.BACKEND_LOCK_TABLE }}"
+          terraform apply -auto-approve
+          echo "S3_BUCKET_NAME=$(terraform output -raw bucket_name)" >> $GITHUB_ENV
+          echo "S3_BUCKET_ARN=$(terraform output -raw bucket_arn)" >> $GITHUB_ENV
+        continue-on-error: false
+
+      - name: Deploy OpenSearch module
+        run: |
+          cd terraform/opensearch
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_STATE_BUCKET }}" \
+            -backend-config="key=opensearch/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.BACKEND_LOCK_TABLE }}"
+          terraform apply -auto-approve
+          echo "OPENSEARCH_ENDPOINT=$(terraform output -raw collection_endpoint)" >> $GITHUB_ENV
+          echo "OPENSEARCH_ARN=$(terraform output -raw collection_arn)" >> $GITHUB_ENV
+        continue-on-error: false
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+        continue-on-error: false
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+        continue-on-error: false
+
+      - name: Create OpenSearch indexes
+        run: |
+          OPENSEARCH_ENDPOINT=${{ env.OPENSEARCH_ENDPOINT }} python scripts/create_indexes.py
+        continue-on-error: false
+
+      - name: Deploy Bedrock module
+        run: |
+          cd terraform/bedrock
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_STATE_BUCKET }}" \
+            -backend-config="key=bedrock/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.BACKEND_LOCK_TABLE }}"
+          terraform apply -auto-approve
+          echo "BEDROCK_KB_ID=$(terraform output -raw knowledge_base_id)" >> $GITHUB_ENV
+        continue-on-error: false
+
+      - name: Deploy EventBridge module
+        run: |
+          cd terraform/eventbridge
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_STATE_BUCKET }}" \
+            -backend-config="key=eventbridge/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.BACKEND_LOCK_TABLE }}"
+          terraform apply -auto-approve
+        continue-on-error: false
+
+      - name: Deploy Lambda module
+        run: |
+          cd terraform/lambda
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_STATE_BUCKET }}" \
+            -backend-config="key=lambda/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.BACKEND_LOCK_TABLE }}"
+          terraform apply -auto-approve
+          echo "SEARCH_LAMBDA_ARN=$(terraform output -raw search_lambda_arn)" >> $GITHUB_ENV
+          echo "SUGGESTIONS_LAMBDA_ARN=$(terraform output -raw suggestions_lambda_arn)" >> $GITHUB_ENV
+          echo "RAG_LAMBDA_ARN=$(terraform output -raw rag_lambda_arn)" >> $GITHUB_ENV
+          echo "INDEXER_LAMBDA_ARN=$(terraform output -raw indexer_lambda_arn)" >> $GITHUB_ENV
+        continue-on-error: false
+
+      - name: Deploy API Gateway module
+        run: |
+          cd terraform/apigateway
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_STATE_BUCKET }}" \
+            -backend-config="key=apigateway/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.BACKEND_LOCK_TABLE }}"
+          terraform apply -auto-approve
+          echo "API_ENDPOINT_URL=$(terraform output -raw api_endpoint_url)" >> $GITHUB_ENV
+        continue-on-error: false
+
+      - name: Output deployment summary
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Branch: ${{ inputs.branch }}"
+          echo "API Endpoint: ${{ env.API_ENDPOINT_URL }}"
