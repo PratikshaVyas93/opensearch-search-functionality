@@ -4,7 +4,7 @@
 # Archive the Lambda function code
 data "archive_file" "embedding_lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/../../lambda/embedding/index.py"
+  source_file = "${path.module}/../../src/embedding/index.py"
   output_path = "${path.module}/.terraform/embedding_lambda.zip"
 }
 

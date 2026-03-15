@@ -4,7 +4,7 @@
 # Archive the Lambda function code
 data "archive_file" "suggestions_lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/../../lambda/suggestions/index.py"
+  source_file = "${path.module}/../../src/suggestions/index.py"
   output_path = "${path.module}/.terraform/suggestions_lambda.zip"
 }
 

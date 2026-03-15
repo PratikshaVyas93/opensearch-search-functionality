@@ -81,8 +81,8 @@ module "iam" {
 # Phase 2: Index Bootstrap Lambda
 # ============================================================================
 
-module "index_bootstrap_lambda" {
-  source = "./modules/opensearch_index_bootstrap_lambda"
+module "src_bootstrap" {
+  source = "./modules/src_bootstrap"
 
   function_name       = "${var.env}-${var.project_name}-index-bootstrap"
   lambda_role_arn     = module.iam.index_bootstrap_lambda_role_arn
@@ -97,13 +97,6 @@ module "index_bootstrap_lambda" {
     module.iam
   ]
 }
-
-# ============================================================================
-# Phase 3: Search & Query APIs
-# ============================================================================
-
-module "search_lambda" {
-  source = "./modules/lambda_search"
 
   function_name       = "${var.env}-${var.project_name}-search"
   lambda_role_arn     = module.iam.search_lambda_role_arn
