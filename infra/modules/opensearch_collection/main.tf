@@ -43,7 +43,7 @@ resource "aws_opensearchserverless_security_policy" "network" {
 
 # Data access policy for Lambda functions and services
 resource "aws_opensearchserverless_access_policy" "this" {
-  name        = "${var.env}-${var.project_name}-access"
+  name        = "${var.env}-${var.project_name}-data"
   type        = "data"
   description = "Data access policy for ${var.collection_name}"
 

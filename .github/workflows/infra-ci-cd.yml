@@ -47,6 +47,11 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
+      - name: Build Lambda Layer
+        run: |
+          mkdir -p infra/lambda_layers/opensearch/python/lib/python3.12/site-packages
+          pip install -r infra/lambda_layers/opensearch/python/requirements.txt -t infra/lambda_layers/opensearch/python/lib/python3.12/site-packages/
+
       - name: Terraform Format
         working-directory: ./infra
         run: terraform fmt -recursive
@@ -110,7 +115,7 @@ jobs:
           echo "api_endpoint=$(terraform output -raw api_endpoint)" >> $GITHUB_OUTPUT
           echo "search_endpoint=$(terraform output -raw search_endpoint)" >> $GITHUB_OUTPUT
           echo "suggestions_endpoint=$(terraform output -raw suggestions_endpoint)" >> $GITHUB_OUTPUT
-          echo "knowledge_base_id=$(terraform output -raw knowledge_base_id)" >> $GITHUB_OUTPUT
+          echo "state_machine_arn=$(terraform output -raw state_machine_arn)" >> $GITHUB_OUTPUT
 
       - name: Deployment Summary
         run: |
@@ -125,8 +130,8 @@ jobs:
           echo "- **Search:** ${{ steps.final_outputs.outputs.search_endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Suggestions:** ${{ steps.final_outputs.outputs.suggestions_endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Knowledge Base" >> $GITHUB_STEP_SUMMARY
-          echo "- **ID:** ${{ steps.final_outputs.outputs.knowledge_base_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Step Functions" >> $GITHUB_STEP_SUMMARY
+          echo "- **State Machine ARN:** ${{ steps.final_outputs.outputs.state_machine_arn }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "1. Test the search endpoint: \`curl '${{ steps.final_outputs.outputs.search_endpoint }}?query=test'\`" >> $GITHUB_STEP_SUMMARY

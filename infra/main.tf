@@ -21,7 +21,7 @@ provider "aws" {
 
 data "archive_file" "opensearch_layer" {
   type        = "zip"
-  source_dir  = "${path.module}/lambda_layers/opensearch"
+  source_dir  = "${path.module}/lambda_layers/opensearch/python"
   output_path = "${path.module}/.terraform/opensearch_layer.zip"
 }
 
