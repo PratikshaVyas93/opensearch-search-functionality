@@ -19,7 +19,6 @@ provider "aws" {
 # Lambda Layer for OpenSearch Dependencies
 # ============================================================================
 
-# Create a Lambda layer with opensearchpy and requests-aws4auth
 data "archive_file" "opensearch_layer" {
   type        = "zip"
   source_dir  = "${path.module}/lambda_layers/opensearch"
@@ -37,7 +36,6 @@ resource "aws_lambda_layer_version" "opensearch" {
 # Phase 1: Infrastructure Foundation
 # ============================================================================
 
-# S3 Documents Bucket
 module "s3_documents" {
   source = "./modules/s3_documents"
 
@@ -46,7 +44,6 @@ module "s3_documents" {
   project_name = var.project_name
 }
 
-# OpenSearch Collection
 module "opensearch_collection" {
   source = "./modules/opensearch_collection"
 
@@ -54,31 +51,41 @@ module "opensearch_collection" {
   env             = var.env
   project_name    = var.project_name
 
-  # Allow all Lambda roles to access the collection
+  # Placeholder ARNs - will be updated after IAM module creation
   access_principal_arns = [
-    module.iam.index_bootstrap_lambda_role_arn,
-    module.iam.search_lambda_role_arn,
-    module.iam.suggestions_lambda_role_arn,
-    module.iam.document_processor_lambda_role_arn,
-    module.iam.embedding_generator_lambda_role_arn
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-index-bootstrap-role",
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-search-role",
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-suggestions-role",
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-processor-role",
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-embedding-role"
   ]
 }
 
-# IAM Roles and Policies
+data "aws_caller_identity" "current" {}
+
+# ============================================================================
+# Phase 2: IAM Roles and Policies
+# ============================================================================
+
 module "iam" {
   source = "./modules/iam"
 
-  env                              = var.env
-  project_name                     = var.project_name
-  region                           = var.region
-  opensearch_collection_arn        = module.opensearch_collection.collection_arn
-  s3_bucket_arn                    = module.s3_documents.bucket_arn
-  document_processor_lambda_arn    = ""  # Will be set after Lambda creation
-  embedding_generator_lambda_arn   = ""  # Will be set after Lambda creation
+  env                            = var.env
+  project_name                   = var.project_name
+  region                         = var.region
+  opensearch_collection_arn      = module.opensearch_collection.collection_arn
+  s3_bucket_arn                  = module.s3_documents.bucket_arn
+  document_processor_lambda_arn  = ""
+  embedding_generator_lambda_arn = ""
+
+  depends_on = [
+    module.opensearch_collection,
+    module.s3_documents
+  ]
 }
 
 # ============================================================================
-# Phase 2: Index Bootstrap Lambda
+# Phase 3: Lambda Functions
 # ============================================================================
 
 module "src_bootstrap" {
@@ -93,14 +100,9 @@ module "src_bootstrap" {
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
-    module.opensearch_collection,
     module.iam
   ]
 }
-
-# ============================================================================
-# Phase 3: Search & Query APIs
-# ============================================================================
 
 module "src_search" {
   source = "./modules/src_search"
@@ -114,7 +116,6 @@ module "src_search" {
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
-    module.opensearch_collection,
     module.iam
   ]
 }
@@ -131,14 +132,9 @@ module "src_suggestions" {
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
-    module.opensearch_collection,
     module.iam
   ]
 }
-
-# ============================================================================
-# Phase 4: Ingestion Pipeline
-# ============================================================================
 
 module "src_processor" {
   source = "./modules/src_processor"
@@ -166,12 +162,14 @@ module "src_embedding" {
   bedrock_model_id     = var.bedrock_model_id
 
   depends_on = [
-    module.opensearch_collection,
     module.iam
   ]
 }
 
-# EventBridge role for Step Functions
+# ============================================================================
+# Phase 4: Step Functions & EventBridge
+# ============================================================================
+
 resource "aws_iam_role" "eventbridge_role" {
   name = "${var.env}-${var.project_name}-eventbridge-role"
 
@@ -202,10 +200,8 @@ resource "aws_iam_role_policy" "eventbridge_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "states:StartExecution"
-        ]
+        Effect   = "Allow"
+        Action   = ["states:StartExecution"]
         Resource = "*"
       }
     ]
@@ -255,11 +251,12 @@ module "api_gateway" {
 module "bedrock_knowledge_base" {
   source = "./modules/bedrock_knowledge_base"
 
-  knowledge_base_name       = "${var.env}-${var.project_name}-kb"
-  env                       = var.env
-  project_name              = var.project_name
-  opensearch_collection_arn = module.opensearch_collection.collection_arn
-  s3_bucket_arn             = module.s3_documents.bucket_arn
+  knowledge_base_name           = "${var.env}-${var.project_name}-kb"
+  env                           = var.env
+  project_name                  = var.project_name
+  opensearch_collection_arn     = module.opensearch_collection.collection_arn
+  s3_bucket_arn                 = module.s3_documents.bucket_arn
+  bedrock_embedding_model_id    = var.bedrock_model_id
 
   depends_on = [
     module.opensearch_collection,

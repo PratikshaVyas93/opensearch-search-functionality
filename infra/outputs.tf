@@ -23,27 +23,27 @@ output "opensearch_collection_name" {
 
 output "index_bootstrap_lambda_name" {
   description = "Name of the index bootstrap Lambda function"
-  value       = module.index_bootstrap_lambda.lambda_function_name
+  value       = module.src_bootstrap.lambda_function_name
 }
 
 output "search_lambda_name" {
   description = "Name of the search Lambda function"
-  value       = module.search_lambda.lambda_function_name
+  value       = module.src_search.lambda_function_name
 }
 
 output "suggestions_lambda_name" {
   description = "Name of the suggestions Lambda function"
-  value       = module.suggestions_lambda.lambda_function_name
+  value       = module.src_suggestions.lambda_function_name
 }
 
 output "document_processor_lambda_name" {
   description = "Name of the document processor Lambda function"
-  value       = module.document_processor_lambda.lambda_function_name
+  value       = module.src_processor.lambda_function_name
 }
 
 output "embedding_generator_lambda_name" {
   description = "Name of the embedding generator Lambda function"
-  value       = module.embedding_generator_lambda.lambda_function_name
+  value       = module.src_embedding.lambda_function_name
 }
 
 # ============================================================================

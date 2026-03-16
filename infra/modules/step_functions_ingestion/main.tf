@@ -51,21 +51,22 @@ resource "aws_cloudwatch_event_target" "step_functions" {
   arn       = aws_sfn_state_machine.ingestion.arn
   role_arn  = var.eventbridge_role_arn
 
-  # Pass the S3 event to Step Functions
-  input_transformer = {
+  input_transformer {
     input_paths = {
       bucket = "$.detail.bucket.name"
       key    = "$.detail.object.key"
     }
-    input_template = jsonencode({
-      detail = {
-        bucket = {
-          name = "<bucket>"
-        }
-        object = {
-          key = "<key>"
-        }
-      }
-    })
+    input_template = <<EOF
+{
+  "detail": {
+    "bucket": {
+      "name": "<bucket>"
+    },
+    "object": {
+      "key": "<key>"
+    }
+  }
+}
+EOF
   }
 }
