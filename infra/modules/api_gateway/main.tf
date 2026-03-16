@@ -27,7 +27,7 @@ resource "aws_apigatewayv2_stage" "this" {
 
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_logs.arn
-    format = jsonencode({
+    format          = jsonencode({
       requestId      = "$context.requestId"
       ip             = "$context.identity.sourceIp"
       requestTime    = "$context.requestTime"
@@ -64,11 +64,11 @@ resource "aws_cloudwatch_log_group" "api_logs" {
 
 # Create integration for search Lambda
 resource "aws_apigatewayv2_integration" "search_lambda" {
-  api_id           = aws_apigatewayv2_api.this.id
-  integration_type = "AWS_PROXY"
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.this.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
   payload_format_version = "2.0"
-  target = var.search_lambda_invoke_arn
+  target                 = var.search_lambda_invoke_arn
 }
 
 # Create /search route
@@ -93,11 +93,11 @@ resource "aws_lambda_permission" "search_api_gateway" {
 
 # Create integration for suggestions Lambda
 resource "aws_apigatewayv2_integration" "suggestions_lambda" {
-  api_id           = aws_apigatewayv2_api.this.id
-  integration_type = "AWS_PROXY"
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.this.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
   payload_format_version = "2.0"
-  target = var.suggestions_lambda_invoke_arn
+  target                 = var.suggestions_lambda_invoke_arn
 }
 
 # Create /suggestions route

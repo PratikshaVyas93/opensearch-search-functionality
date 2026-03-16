@@ -1,6 +1,10 @@
 # Bedrock Knowledge Base Module - RAG knowledge base for document retrieval
 # Integrates with OpenSearch vector store and S3 data source
 
+# Data sources for current AWS account and region
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 # Create IAM role for Bedrock Knowledge Base
 data "aws_iam_policy_document" "bedrock_kb_trust_policy" {
   statement {
@@ -26,8 +30,8 @@ resource "aws_iam_role" "bedrock_kb_role" {
 
 # IAM policy for Bedrock Knowledge Base
 resource "aws_iam_role_policy" "bedrock_kb_policy" {
-  name   = "${var.env}-${var.project_name}-bedrock-kb-policy"
-  role   = aws_iam_role.bedrock_kb_role.id
+  name = "${var.env}-${var.project_name}-bedrock-kb-policy"
+  role = aws_iam_role.bedrock_kb_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -57,7 +61,7 @@ resource "aws_iam_role_policy" "bedrock_kb_policy" {
         Action = [
           "bedrock:InvokeModel"
         ]
-        Resource = "arn:aws:bedrock:${data.aws_caller_identity.current.region}::foundation-model/amazon.titan-embed-text-v1"
+        Resource = "arn:aws:bedrock:${data.aws_region.current.name}::foundation-model/amazon.titan-embed-text-v1"
       }
     ]
   })
@@ -65,23 +69,24 @@ resource "aws_iam_role_policy" "bedrock_kb_policy" {
 
 # Create Bedrock Knowledge Base
 resource "aws_bedrock_knowledge_base" "this" {
-  name            = var.knowledge_base_name
-  role_arn        = aws_iam_role.bedrock_kb_role.arn
+  name     = var.knowledge_base_name
+  role_arn = aws_iam_role.bedrock_kb_role.arn
+
   knowledge_base_configuration {
     type = "VECTOR"
     vector_knowledge_base_configuration {
-      embedding_model_arn = "arn:aws:bedrock:${data.aws_caller_identity.current.region}::foundation-model/amazon.titan-embed-text-v1"
+      embedding_model_arn = "arn:aws:bedrock:${data.aws_region.current.name}::foundation-model/amazon.titan-embed-text-v1"
     }
   }
 
   storage_configuration {
     type = "OPENSEARCH_SERVERLESS"
     opensearch_serverless_configuration {
-      collection_arn = var.opensearch_collection_arn
+      collection_arn    = var.opensearch_collection_arn
       vector_index_name = "vector-index"
       field_mapping {
-        vector_field = "embedding"
-        text_field = "text"
+        vector_field   = "embedding"
+        text_field     = "text"
         metadata_field = "metadata"
       }
     }
@@ -102,6 +107,7 @@ resource "aws_bedrock_knowledge_base" "this" {
 resource "aws_bedrock_data_source" "s3" {
   knowledge_base_id = aws_bedrock_knowledge_base.this.id
   name              = "${var.env}-${var.project_name}-s3-source"
+
   data_source_configuration {
     type = "S3"
     s3_configuration {
@@ -113,6 +119,3 @@ resource "aws_bedrock_data_source" "s3" {
     aws_bedrock_knowledge_base.this
   ]
 }
-
-# Data source for current AWS account and region
-data "aws_caller_identity" "current" {}

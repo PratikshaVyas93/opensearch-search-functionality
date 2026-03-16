@@ -1,6 +1,6 @@
 output "api_endpoint" {
   description = "HTTP API endpoint URL"
-  value       = "${aws_apigatewayv2_stage.this.invoke_url}"
+  value       = aws_apigatewayv2_stage.this.invoke_url
 }
 
 output "api_id" {

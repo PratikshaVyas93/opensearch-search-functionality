@@ -25,6 +25,9 @@ data "aws_iam_policy_document" "step_functions_trust_policy" {
   }
 }
 
+# Data source for current AWS account
+data "aws_caller_identity" "current" {}
+
 # ============================================================================
 # Index Bootstrap Lambda Role
 # ============================================================================
@@ -41,17 +44,15 @@ resource "aws_iam_role" "index_bootstrap_lambda_role" {
 }
 
 resource "aws_iam_role_policy" "index_bootstrap_lambda_policy" {
-  name   = "${var.env}-${var.project_name}-index-bootstrap-policy"
-  role   = aws_iam_role.index_bootstrap_lambda_role.id
+  name = "${var.env}-${var.project_name}-index-bootstrap-policy"
+  role = aws_iam_role.index_bootstrap_lambda_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Sid    = "OpenSearchAccess"
         Effect = "Allow"
-        Action = [
-          "aoss:APIAccessAll"
-        ]
+        Action = ["aoss:APIAccessAll"]
         Resource = var.opensearch_collection_arn
       },
       {
@@ -84,17 +85,15 @@ resource "aws_iam_role" "search_lambda_role" {
 }
 
 resource "aws_iam_role_policy" "search_lambda_policy" {
-  name   = "${var.env}-${var.project_name}-search-policy"
-  role   = aws_iam_role.search_lambda_role.id
+  name = "${var.env}-${var.project_name}-search-policy"
+  role = aws_iam_role.search_lambda_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Sid    = "OpenSearchAccess"
         Effect = "Allow"
-        Action = [
-          "aoss:APIAccessAll"
-        ]
+        Action = ["aoss:APIAccessAll"]
         Resource = var.opensearch_collection_arn
       },
       {
@@ -127,17 +126,15 @@ resource "aws_iam_role" "suggestions_lambda_role" {
 }
 
 resource "aws_iam_role_policy" "suggestions_lambda_policy" {
-  name   = "${var.env}-${var.project_name}-suggestions-policy"
-  role   = aws_iam_role.suggestions_lambda_role.id
+  name = "${var.env}-${var.project_name}-suggestions-policy"
+  role = aws_iam_role.suggestions_lambda_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Sid    = "OpenSearchAccess"
         Effect = "Allow"
-        Action = [
-          "aoss:APIAccessAll"
-        ]
+        Action = ["aoss:APIAccessAll"]
         Resource = var.opensearch_collection_arn
       },
       {
@@ -170,8 +167,8 @@ resource "aws_iam_role" "document_processor_lambda_role" {
 }
 
 resource "aws_iam_role_policy" "document_processor_lambda_policy" {
-  name   = "${var.env}-${var.project_name}-processor-policy"
-  role   = aws_iam_role.document_processor_lambda_role.id
+  name = "${var.env}-${var.project_name}-processor-policy"
+  role = aws_iam_role.document_processor_lambda_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -214,25 +211,21 @@ resource "aws_iam_role" "embedding_generator_lambda_role" {
 }
 
 resource "aws_iam_role_policy" "embedding_generator_lambda_policy" {
-  name   = "${var.env}-${var.project_name}-embedding-policy"
-  role   = aws_iam_role.embedding_generator_lambda_role.id
+  name = "${var.env}-${var.project_name}-embedding-policy"
+  role = aws_iam_role.embedding_generator_lambda_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Sid    = "OpenSearchAccess"
         Effect = "Allow"
-        Action = [
-          "aoss:APIAccessAll"
-        ]
+        Action = ["aoss:APIAccessAll"]
         Resource = var.opensearch_collection_arn
       },
       {
         Sid    = "BedrockAccess"
         Effect = "Allow"
-        Action = [
-          "bedrock:InvokeModel"
-        ]
+        Action = ["bedrock:InvokeModel"]
         Resource = "arn:aws:bedrock:${var.region}::foundation-model/amazon.titan-embed-text-v1"
       },
       {
@@ -265,17 +258,15 @@ resource "aws_iam_role" "step_functions_ingestion_role" {
 }
 
 resource "aws_iam_role_policy" "step_functions_ingestion_policy" {
-  name   = "${var.env}-${var.project_name}-step-functions-policy"
-  role   = aws_iam_role.step_functions_ingestion_role.id
+  name = "${var.env}-${var.project_name}-step-functions-policy"
+  role = aws_iam_role.step_functions_ingestion_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Sid    = "InvokeLambdas"
         Effect = "Allow"
-        Action = [
-          "lambda:InvokeFunction"
-        ]
+        Action = ["lambda:InvokeFunction"]
         Resource = [
           var.document_processor_lambda_arn,
           var.embedding_generator_lambda_arn
@@ -294,9 +285,3 @@ resource "aws_iam_role_policy" "step_functions_ingestion_policy" {
     ]
   })
 }
-
-# ============================================================================
-# Data source for current AWS account
-# ============================================================================
-
-data "aws_caller_identity" "current" {}
