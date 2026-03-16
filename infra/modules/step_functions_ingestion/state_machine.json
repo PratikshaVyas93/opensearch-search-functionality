@@ -1,36 +1,25 @@
 {
-  "Comment": "Document ingestion workflow - processes documents and generates embeddings",
-  "StartAt": "ProcessDocument",
+  "Comment": "Document ingestion — triggers metadata/suggestions indexer Lambda. Bedrock KB handles chunking and vector embedding separately.",
+  "StartAt": "IndexMetadataAndSuggestions",
   "States": {
-    "ProcessDocument": {
+    "IndexMetadataAndSuggestions": {
       "Type": "Task",
       "Resource": "${document_processor_lambda_arn}",
-      "Next": "GenerateEmbeddings",
+      "Next": "IngestionSucceeded",
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
-          "Next": "ProcessingFailed"
+          "Next": "IngestionFailed"
         }
       ]
     },
-    "GenerateEmbeddings": {
-      "Type": "Task",
-      "Resource": "${embedding_generator_lambda_arn}",
-      "Next": "ProcessingSucceeded",
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Next": "ProcessingFailed"
-        }
-      ]
-    },
-    "ProcessingSucceeded": {
+    "IngestionSucceeded": {
       "Type": "Succeed"
     },
-    "ProcessingFailed": {
+    "IngestionFailed": {
       "Type": "Fail",
-      "Error": "DocumentProcessingFailed",
-      "Cause": "Failed to process document or generate embeddings"
+      "Error": "IngestionFailed",
+      "Cause": "Metadata/suggestions indexing failed"
     }
   }
 }

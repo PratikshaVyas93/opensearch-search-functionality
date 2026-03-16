@@ -6,7 +6,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 5.31"
     }
   }
 
@@ -64,8 +64,8 @@ module "opensearch_collection" {
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-index-bootstrap-role",
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-search-role",
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-suggestions-role",
-    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-processor-role",
-    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-embedding-role"
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-indexer-role",
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-bedrock-kb-role"
   ]
 }
 
@@ -147,30 +147,16 @@ module "src_suggestions" {
   ]
 }
 
-module "src_processor" {
-  source = "./modules/src_processor"
+module "src_indexer" {
+  source = "./modules/src_indexer"
 
-  function_name   = "${var.env}-${var.project_name}-processor"
-  lambda_role_arn = module.iam.document_processor_lambda_role_arn
-  env             = var.env
-  project_name    = var.project_name
-
-  depends_on = [
-    module.iam
-  ]
-}
-
-module "src_embedding" {
-  source = "./modules/src_embedding"
-
-  function_name        = "${var.env}-${var.project_name}-embedding"
-  lambda_role_arn      = module.iam.embedding_generator_lambda_role_arn
+  function_name        = "${var.env}-${var.project_name}-indexer"
+  lambda_role_arn      = module.iam.indexer_lambda_role_arn
   opensearch_endpoint  = module.opensearch_collection.collection_endpoint
   region               = var.region
   env                  = var.env
   project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
-  bedrock_model_id     = var.bedrock_model_id
 
   depends_on = [
     module.iam,
@@ -225,22 +211,42 @@ module "step_functions_ingestion" {
 
   state_machine_name             = "${var.env}-${var.project_name}-ingestion"
   step_functions_role_arn        = module.iam.step_functions_ingestion_role_arn
-  document_processor_lambda_arn  = module.src_processor.lambda_arn
-  embedding_generator_lambda_arn = module.src_embedding.lambda_arn
+  document_processor_lambda_arn  = module.src_indexer.lambda_arn
+  embedding_generator_lambda_arn = module.src_indexer.lambda_arn
   s3_bucket_name                 = module.s3_documents.bucket_name
   eventbridge_role_arn           = aws_iam_role.eventbridge_role.arn
   env                            = var.env
   project_name                   = var.project_name
 
   depends_on = [
-    module.src_processor,
-    module.src_embedding,
+    module.src_indexer,
     module.iam
   ]
 }
 
 # ============================================================================
-# Phase 5: API Gateway
+# Phase 5: Bedrock Knowledge Base
+# ============================================================================
+
+module "bedrock_knowledge_base" {
+  source = "./modules/bedrock_knowledge_base"
+
+  knowledge_base_name        = "${var.env}-${var.project_name}-kb"
+  env                        = var.env
+  project_name               = var.project_name
+  opensearch_collection_arn  = module.opensearch_collection.collection_arn
+  s3_bucket_arn              = module.s3_documents.bucket_arn
+  bedrock_embedding_model_id = var.bedrock_model_id
+
+  depends_on = [
+    module.opensearch_collection,
+    module.s3_documents,
+    module.src_bootstrap
+  ]
+}
+
+# ============================================================================
+# Phase 6: API Gateway
 # ============================================================================
 
 module "api_gateway" {

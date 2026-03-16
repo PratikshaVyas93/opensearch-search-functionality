@@ -12,6 +12,14 @@ on:
           - dev
           - stg
           - prod
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
       branch:
         description: 'Branch to deploy'
         required: true
@@ -22,10 +30,11 @@ on:
 env:
   AWS_REGION: us-east-1
   TERRAFORM_VERSION: 1.5.0
+  STATE_BUCKET: dev-opensearch-navco-search-tfstate
 
 jobs:
   deploy:
-    name: Deploy Infrastructure
+    name: ${{ github.event.inputs.action == 'destroy' && 'Destroy Infrastructure' || 'Deploy Infrastructure' }}
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
@@ -48,15 +57,60 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
 
+      - name: Create Terraform State Bucket
+        run: |
+          aws s3api create-bucket \
+            --bucket ${{ env.STATE_BUCKET }} \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "Bucket already exists"
+          aws s3api put-bucket-versioning \
+            --bucket ${{ env.STATE_BUCKET }} \
+            --versioning-configuration Status=Enabled
+
+      - name: Terraform Init
+        working-directory: ./infra
+        run: terraform init
+
+      # ============================================================
+      # DESTROY PATH
+      # ============================================================
+
+      - name: Terraform Destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        working-directory: ./infra
+        run: |
+          terraform destroy \
+            -var="env=${{ github.event.inputs.environment }}" \
+            -auto-approve
+        continue-on-error: true
+
+      - name: Empty S3 Documents Bucket (required before destroy)
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        run: |
+          BUCKET="${{ github.event.inputs.environment }}-opensearch-navco-search-documents-bucket"
+          echo "Emptying bucket: $BUCKET"
+          aws s3 rm s3://$BUCKET --recursive 2>/dev/null || echo "Bucket already empty or does not exist"
+
+      - name: Destroy Summary
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        run: |
+          echo "## Destroy Complete" >> $GITHUB_STEP_SUMMARY
+          echo "All resources for environment **${{ github.event.inputs.environment }}** have been destroyed." >> $GITHUB_STEP_SUMMARY
+          echo "The Terraform state bucket (${{ env.STATE_BUCKET }}) was intentionally kept." >> $GITHUB_STEP_SUMMARY
+
+      # ============================================================
+      # DEPLOY PATH
+      # ============================================================
+
       - name: Build Lambda Layer
+        if: ${{ github.event.inputs.action == 'deploy' }}
         run: |
           set -e
           LAYER_DIR="infra/lambda_layers/opensearch"
           SITE_PACKAGES="$LAYER_DIR/python/lib/python3.13/site-packages"
-          
+
           echo "Creating directory structure..."
           mkdir -p "$SITE_PACKAGES"
-          
+
           echo "Installing Python packages..."
           if [ -f "$LAYER_DIR/python/requirements.txt" ]; then
             pip install -r "$LAYER_DIR/python/requirements.txt" -t "$SITE_PACKAGES" --no-cache-dir --quiet
@@ -68,88 +122,68 @@ jobs:
             exit 1
           fi
 
-      - name: Create Terraform State Bucket
-        run: |
-          aws s3api create-bucket \
-            --bucket dev-opensearch-navco-search-tfstate \
-            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "Bucket already exists"
-          aws s3api put-bucket-versioning \
-            --bucket dev-opensearch-navco-search-tfstate \
-            --versioning-configuration Status=Enabled
-
       - name: Terraform Format
+        if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra
         run: terraform fmt -recursive
 
-      - name: Terraform Init
-        working-directory: ./infra
-        run: terraform init
-
       - name: Terraform Validate
+        if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra
         run: terraform validate
 
-      - name: Terraform Plan - Core Infrastructure
+      - name: Terraform Plan
+        if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra
         run: |
           terraform plan \
             -var="env=${{ github.event.inputs.environment }}" \
-            -out=tfplan_core
+            -out=tfplan
 
-      - name: Terraform Apply - Core Infrastructure
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra
-        run: |
-          terraform apply -auto-approve tfplan_core
+        run: terraform apply -auto-approve tfplan
 
       - name: Get Outputs
+        if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra
         id: tf_outputs
         run: |
           INDEX_BOOTSTRAP=$(terraform output -json index_bootstrap_lambda_name | jq -r '.')
-          OPENSEARCH_ENDPOINT=$(terraform output -json opensearch_endpoint | jq -r '.')
           echo "index_bootstrap_lambda=${INDEX_BOOTSTRAP}" >> $GITHUB_OUTPUT
-          echo "opensearch_endpoint=${OPENSEARCH_ENDPOINT}" >> $GITHUB_OUTPUT
-          echo "Captured: $INDEX_BOOTSTRAP"
+          echo "Captured bootstrap lambda: $INDEX_BOOTSTRAP"
 
       - name: Invoke Index Bootstrap Lambda
+        if: ${{ github.event.inputs.action == 'deploy' }}
         run: |
           aws lambda invoke \
             --function-name ${{ steps.tf_outputs.outputs.index_bootstrap_lambda }} \
             --region ${{ env.AWS_REGION }} \
             /tmp/bootstrap_response.json
-          
           echo "Bootstrap Lambda Response:"
           cat /tmp/bootstrap_response.json
 
-      - name: Wait for Index Bootstrap
-        run: sleep 10
-
-      - name: Terraform Plan - Dependent Infrastructure
-        working-directory: ./infra
-        run: |
-          terraform plan \
-            -var="env=${{ github.event.inputs.environment }}" \
-            -out=tfplan_dependent
-
-      - name: Terraform Apply - Dependent Infrastructure
-        working-directory: ./infra
-        run: |
-          terraform apply -auto-approve tfplan_dependent
+      - name: Wait for OpenSearch Indexes
+        if: ${{ github.event.inputs.action == 'deploy' }}
+        run: sleep 15
 
       - name: Get Final Outputs
+        if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra
         id: final_outputs
         run: |
           API_ENDPOINT=$(terraform output -json api_endpoint | jq -r '.')
           SEARCH_ENDPOINT=$(terraform output -json search_endpoint | jq -r '.')
           SUGGESTIONS_ENDPOINT=$(terraform output -json suggestions_endpoint | jq -r '.')
-          STATE_MACHINE_ARN=$(terraform output -json state_machine_arn | jq -r '.')
+          KB_ID=$(terraform output -json knowledge_base_id | jq -r '.')
           echo "api_endpoint=$API_ENDPOINT" >> $GITHUB_OUTPUT
           echo "search_endpoint=$SEARCH_ENDPOINT" >> $GITHUB_OUTPUT
           echo "suggestions_endpoint=$SUGGESTIONS_ENDPOINT" >> $GITHUB_OUTPUT
-          echo "state_machine_arn=$STATE_MACHINE_ARN" >> $GITHUB_OUTPUT
+          echo "knowledge_base_id=$KB_ID" >> $GITHUB_OUTPUT
 
       - name: Deployment Summary
+        if: ${{ github.event.inputs.action == 'deploy' }}
         run: |
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -162,16 +196,15 @@ jobs:
           echo "- **Search:** ${{ steps.final_outputs.outputs.search_endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Suggestions:** ${{ steps.final_outputs.outputs.suggestions_endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Step Functions" >> $GITHUB_STEP_SUMMARY
-          echo "- **State Machine ARN:** ${{ steps.final_outputs.outputs.state_machine_arn }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Bedrock Knowledge Base" >> $GITHUB_STEP_SUMMARY
+          echo "- **Knowledge Base ID:** ${{ steps.final_outputs.outputs.knowledge_base_id }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Test the search endpoint: \`curl '${{ steps.final_outputs.outputs.search_endpoint }}?query=test'\`" >> $GITHUB_STEP_SUMMARY
-          echo "2. Test suggestions: \`curl '${{ steps.final_outputs.outputs.suggestions_endpoint }}?prefix=test'\`" >> $GITHUB_STEP_SUMMARY
-          echo "3. Upload documents to S3 to trigger ingestion pipeline" >> $GITHUB_STEP_SUMMARY
+          echo "1. Test search: \`curl '${{ steps.final_outputs.outputs.search_endpoint }}?query=test'\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Test suggestions: \`curl '${{ steps.final_outputs.outputs.suggestions_endpoint }}?prefix=te'\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Upload a JSON file to S3 to trigger ingestion" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup Terraform Plan Files
         if: always()
         working-directory: ./infra
-        run: |
-          rm -f tfplan_core tfplan_dependent
+        run: rm -f tfplan

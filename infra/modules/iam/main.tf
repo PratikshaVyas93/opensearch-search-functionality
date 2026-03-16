@@ -124,67 +124,36 @@ resource "aws_iam_role_policy" "suggestions_lambda_policy" {
   })
 }
 
-# Document Processor Lambda Role
-resource "aws_iam_role" "document_processor_lambda_role" {
-  name               = "${var.env}-${var.project_name}-processor-role"
+# Metadata/Suggestions Indexer Lambda Role
+# Replaces: document_processor_lambda_role + embedding_generator_lambda_role
+# Bedrock KB handles embeddings — this role only needs S3 read + OpenSearch write
+resource "aws_iam_role" "indexer_lambda_role" {
+  name               = "${var.env}-${var.project_name}-indexer-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_trust_policy.json
   tags = {
-    Name        = "${var.env}-${var.project_name}-processor-role"
+    Name        = "${var.env}-${var.project_name}-indexer-role"
     Environment = var.env
     Project     = var.project_name
   }
 }
 
-resource "aws_iam_role_policy" "document_processor_lambda_policy" {
-  name   = "${var.env}-${var.project_name}-processor-policy"
-  role   = aws_iam_role.document_processor_lambda_role.id
+resource "aws_iam_role_policy" "indexer_lambda_policy" {
+  name   = "${var.env}-${var.project_name}-indexer-policy"
+  role   = aws_iam_role.indexer_lambda_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "S3Access"
+        Sid      = "S3ReadJSON"
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:GetObjectVersion"]
         Resource = "${var.s3_bucket_arn}/*"
       },
       {
-        Sid      = "CloudWatchLogs"
-        Effect   = "Allow"
-        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:*"
-      }
-    ]
-  })
-}
-
-# Embedding Generator Lambda Role
-resource "aws_iam_role" "embedding_generator_lambda_role" {
-  name               = "${var.env}-${var.project_name}-embedding-role"
-  assume_role_policy = data.aws_iam_policy_document.lambda_trust_policy.json
-  tags = {
-    Name        = "${var.env}-${var.project_name}-embedding-role"
-    Environment = var.env
-    Project     = var.project_name
-  }
-}
-
-resource "aws_iam_role_policy" "embedding_generator_lambda_policy" {
-  name   = "${var.env}-${var.project_name}-embedding-policy"
-  role   = aws_iam_role.embedding_generator_lambda_role.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid      = "OpenSearchAccess"
+        Sid      = "OpenSearchWrite"
         Effect   = "Allow"
         Action   = ["aoss:APIAccessAll"]
         Resource = var.opensearch_collection_arn
-      },
-      {
-        Sid      = "BedrockAccess"
-        Effect   = "Allow"
-        Action   = ["bedrock:InvokeModel"]
-        Resource = "arn:aws:bedrock:${var.region}::foundation-model/amazon.titan-embed-text-v1"
       },
       {
         Sid      = "CloudWatchLogs"
