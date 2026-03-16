@@ -66,6 +66,15 @@ jobs:
             touch "$SITE_PACKAGES/.gitkeep"
           fi
 
+      - name: Create Terraform State Bucket
+        run: |
+          aws s3api create-bucket \
+            --bucket dev-opensearch-navco-search-tfstate \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "Bucket already exists"
+          aws s3api put-bucket-versioning \
+            --bucket dev-opensearch-navco-search-tfstate \
+            --versioning-configuration Status=Enabled
+
       - name: Terraform Format
         working-directory: ./infra
         run: terraform fmt -recursive

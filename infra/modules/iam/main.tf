@@ -217,7 +217,7 @@ resource "aws_iam_role_policy" "step_functions_ingestion_policy" {
         Sid      = "InvokeLambdas"
         Effect   = "Allow"
         Action   = ["lambda:InvokeFunction"]
-        Resource = [var.document_processor_lambda_arn, var.embedding_generator_lambda_arn]
+        Resource = "*"
       },
       {
         Sid      = "CloudWatchLogs"

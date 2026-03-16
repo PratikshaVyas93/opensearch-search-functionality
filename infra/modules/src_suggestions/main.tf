@@ -14,7 +14,7 @@ resource "aws_lambda_function" "suggestions" {
   function_name    = var.function_name
   role             = var.lambda_role_arn
   handler          = "index.handler"
-  runtime          = "python3.12"
+  runtime          = "python3.13"
   source_code_hash = data.archive_file.suggestions_lambda_zip.output_base64sha256
   timeout          = 30
 
