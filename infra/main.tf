@@ -29,7 +29,7 @@ data "archive_file" "opensearch_layer" {
 resource "aws_lambda_layer_version" "opensearch" {
   filename            = data.archive_file.opensearch_layer.output_path
   layer_name          = "${var.env}-${var.project_name}-opensearch-layer"
-  compatible_runtimes = ["python3.12"]
+  compatible_runtimes = ["python3.13"]
   source_code_hash    = data.archive_file.opensearch_layer.output_base64sha256
 }
 

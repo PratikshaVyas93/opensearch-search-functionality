@@ -51,7 +51,7 @@ jobs:
         run: |
           set -e
           LAYER_DIR="infra/lambda_layers/opensearch/python"
-          SITE_PACKAGES="$LAYER_DIR/lib/python3.12/site-packages"
+          SITE_PACKAGES="$LAYER_DIR/lib/python3.13/site-packages"
           
           echo "Creating directory structure..."
           mkdir -p "$SITE_PACKAGES"
