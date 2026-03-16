@@ -4,7 +4,7 @@
 # Archive the Lambda function code
 data "archive_file" "index_bootstrap_lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/../../src/bootstrap/index.py"
+  source_file = "${path.module}/../../../src/bootstrap/index.py"
   output_path = "${path.module}/.terraform/index_bootstrap_lambda.zip"
 }
 
