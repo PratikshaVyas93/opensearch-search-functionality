@@ -41,8 +41,8 @@ resource "aws_lambda_layer_version" "opensearch" {
 module "s3_documents" {
   source = "./modules/s3_documents"
 
-  bucket_name = "${var.env}-${var.project_name}-documents-bucket"
-  env         = var.env
+  bucket_name  = "${var.env}-${var.project_name}-documents-bucket"
+  env          = var.env
   project_name = var.project_name
 }
 
@@ -84,12 +84,12 @@ module "iam" {
 module "src_bootstrap" {
   source = "./modules/src_bootstrap"
 
-  function_name       = "${var.env}-${var.project_name}-index-bootstrap"
-  lambda_role_arn     = module.iam.index_bootstrap_lambda_role_arn
-  opensearch_endpoint = module.opensearch_collection.collection_endpoint
-  region              = var.region
-  env                 = var.env
-  project_name        = var.project_name
+  function_name        = "${var.env}-${var.project_name}-index-bootstrap"
+  lambda_role_arn      = module.iam.index_bootstrap_lambda_role_arn
+  opensearch_endpoint  = module.opensearch_collection.collection_endpoint
+  region               = var.region
+  env                  = var.env
+  project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
@@ -98,12 +98,19 @@ module "src_bootstrap" {
   ]
 }
 
-  function_name       = "${var.env}-${var.project_name}-search"
-  lambda_role_arn     = module.iam.search_lambda_role_arn
-  opensearch_endpoint = module.opensearch_collection.collection_endpoint
-  region              = var.region
-  env                 = var.env
-  project_name        = var.project_name
+# ============================================================================
+# Phase 3: Search & Query APIs
+# ============================================================================
+
+module "src_search" {
+  source = "./modules/src_search"
+
+  function_name        = "${var.env}-${var.project_name}-search"
+  lambda_role_arn      = module.iam.search_lambda_role_arn
+  opensearch_endpoint  = module.opensearch_collection.collection_endpoint
+  region               = var.region
+  env                  = var.env
+  project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
@@ -112,15 +119,15 @@ module "src_bootstrap" {
   ]
 }
 
-module "suggestions_lambda" {
-  source = "./modules/lambda_suggestions"
+module "src_suggestions" {
+  source = "./modules/src_suggestions"
 
-  function_name       = "${var.env}-${var.project_name}-suggestions"
-  lambda_role_arn     = module.iam.suggestions_lambda_role_arn
-  opensearch_endpoint = module.opensearch_collection.collection_endpoint
-  region              = var.region
-  env                 = var.env
-  project_name        = var.project_name
+  function_name        = "${var.env}-${var.project_name}-suggestions"
+  lambda_role_arn      = module.iam.suggestions_lambda_role_arn
+  opensearch_endpoint  = module.opensearch_collection.collection_endpoint
+  region               = var.region
+  env                  = var.env
+  project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
@@ -133,8 +140,8 @@ module "suggestions_lambda" {
 # Phase 4: Ingestion Pipeline
 # ============================================================================
 
-module "document_processor_lambda" {
-  source = "./modules/lambda_ingestion_processor"
+module "src_processor" {
+  source = "./modules/src_processor"
 
   function_name   = "${var.env}-${var.project_name}-processor"
   lambda_role_arn = module.iam.document_processor_lambda_role_arn
@@ -146,17 +153,17 @@ module "document_processor_lambda" {
   ]
 }
 
-module "embedding_generator_lambda" {
-  source = "./modules/lambda_embedding_generator"
+module "src_embedding" {
+  source = "./modules/src_embedding"
 
-  function_name       = "${var.env}-${var.project_name}-embedding"
-  lambda_role_arn     = module.iam.embedding_generator_lambda_role_arn
-  opensearch_endpoint = module.opensearch_collection.collection_endpoint
-  region              = var.region
-  env                 = var.env
-  project_name        = var.project_name
+  function_name        = "${var.env}-${var.project_name}-embedding"
+  lambda_role_arn      = module.iam.embedding_generator_lambda_role_arn
+  opensearch_endpoint  = module.opensearch_collection.collection_endpoint
+  region               = var.region
+  env                  = var.env
+  project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
-  bedrock_model_id    = var.bedrock_model_id
+  bedrock_model_id     = var.bedrock_model_id
 
   depends_on = [
     module.opensearch_collection,
@@ -208,18 +215,18 @@ resource "aws_iam_role_policy" "eventbridge_policy" {
 module "step_functions_ingestion" {
   source = "./modules/step_functions_ingestion"
 
-  state_machine_name                = "${var.env}-${var.project_name}-ingestion"
-  step_functions_role_arn           = module.iam.step_functions_ingestion_role_arn
-  document_processor_lambda_arn     = module.document_processor_lambda.lambda_arn
-  embedding_generator_lambda_arn    = module.embedding_generator_lambda.lambda_arn
-  s3_bucket_name                    = module.s3_documents.bucket_name
-  eventbridge_role_arn              = aws_iam_role.eventbridge_role.arn
-  env                               = var.env
-  project_name                      = var.project_name
+  state_machine_name             = "${var.env}-${var.project_name}-ingestion"
+  step_functions_role_arn        = module.iam.step_functions_ingestion_role_arn
+  document_processor_lambda_arn  = module.src_processor.lambda_arn
+  embedding_generator_lambda_arn = module.src_embedding.lambda_arn
+  s3_bucket_name                 = module.s3_documents.bucket_name
+  eventbridge_role_arn           = aws_iam_role.eventbridge_role.arn
+  env                            = var.env
+  project_name                   = var.project_name
 
   depends_on = [
-    module.document_processor_lambda,
-    module.embedding_generator_lambda,
+    module.src_processor,
+    module.src_embedding,
     module.iam
   ]
 }
@@ -231,17 +238,17 @@ module "step_functions_ingestion" {
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  api_name                          = "${var.env}-${var.project_name}-api"
-  env                               = var.env
-  project_name                      = var.project_name
-  search_lambda_invoke_arn          = module.search_lambda.lambda_invoke_arn
-  search_lambda_function_name       = module.search_lambda.lambda_function_name
-  suggestions_lambda_invoke_arn     = module.suggestions_lambda.lambda_invoke_arn
-  suggestions_lambda_function_name  = module.suggestions_lambda.lambda_function_name
+  api_name                         = "${var.env}-${var.project_name}-api"
+  env                              = var.env
+  project_name                     = var.project_name
+  search_lambda_invoke_arn         = module.src_search.lambda_invoke_arn
+  search_lambda_function_name      = module.src_search.lambda_function_name
+  suggestions_lambda_invoke_arn    = module.src_suggestions.lambda_invoke_arn
+  suggestions_lambda_function_name = module.src_suggestions.lambda_function_name
 
   depends_on = [
-    module.search_lambda,
-    module.suggestions_lambda
+    module.src_search,
+    module.src_suggestions
   ]
 }
 
@@ -257,6 +264,6 @@ module "bedrock_knowledge_base" {
   depends_on = [
     module.opensearch_collection,
     module.s3_documents,
-    module.index_bootstrap_lambda
+    module.src_bootstrap
   ]
 }
