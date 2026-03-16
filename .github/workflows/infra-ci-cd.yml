@@ -143,12 +143,26 @@ jobs:
             -var="env=${{ github.event.inputs.environment }}" \
             -out=tfplan
 
-      - name: Terraform Apply
+      - name: Terraform Apply (Phase 1 - All except Knowledge Base)
         if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra
-        run: terraform apply -auto-approve tfplan
+        run: |
+          terraform apply -auto-approve \
+            -var="env=${{ github.event.inputs.environment }}" \
+            -target=module.s3_documents \
+            -target=module.opensearch_collection \
+            -target=module.iam \
+            -target=aws_lambda_layer_version.opensearch \
+            -target=module.src_bootstrap \
+            -target=module.src_search \
+            -target=module.src_suggestions \
+            -target=module.src_indexer \
+            -target=aws_iam_role.eventbridge_role \
+            -target=aws_iam_role_policy.eventbridge_policy \
+            -target=module.step_functions_ingestion \
+            -target=module.api_gateway
 
-      - name: Get Outputs
+      - name: Get Bootstrap Lambda Name
         if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra
         id: tf_outputs
@@ -167,9 +181,23 @@ jobs:
           echo "Bootstrap Lambda Response:"
           cat /tmp/bootstrap_response.json
 
-      - name: Wait for OpenSearch Indexes
+          # Fail the pipeline if bootstrap reported an error
+          if grep -q '"errorType"' /tmp/bootstrap_response.json; then
+            echo "Bootstrap Lambda returned an error — aborting before Knowledge Base creation"
+            exit 1
+          fi
+
+      - name: Wait for OpenSearch Indexes to Stabilize
         if: ${{ github.event.inputs.action == 'deploy' }}
-        run: sleep 15
+        run: sleep 20
+
+      - name: Terraform Apply (Phase 2 - Bedrock Knowledge Base)
+        if: ${{ github.event.inputs.action == 'deploy' }}
+        working-directory: ./infra
+        run: |
+          terraform apply -auto-approve \
+            -var="env=${{ github.event.inputs.environment }}" \
+            -target=module.bedrock_knowledge_base
 
       - name: Get Final Outputs
         if: ${{ github.event.inputs.action == 'deploy' }}
@@ -210,4 +238,4 @@ jobs:
       - name: Cleanup Terraform Plan Files
         if: always()
         working-directory: ./infra
-        run: rm -f tfplan
+        run: rm -f tfplan *.tfplan
