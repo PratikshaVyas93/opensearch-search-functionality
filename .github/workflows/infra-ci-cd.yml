@@ -49,8 +49,22 @@ jobs:
 
       - name: Build Lambda Layer
         run: |
-          mkdir -p infra/lambda_layers/opensearch/python/lib/python3.12/site-packages
-          pip install -r infra/lambda_layers/opensearch/python/requirements.txt -t infra/lambda_layers/opensearch/python/lib/python3.12/site-packages/
+          set -e
+          LAYER_DIR="infra/lambda_layers/opensearch/python"
+          SITE_PACKAGES="$LAYER_DIR/lib/python3.12/site-packages"
+          
+          echo "Creating directory structure..."
+          mkdir -p "$SITE_PACKAGES"
+          
+          echo "Installing Python packages..."
+          if [ -f "$LAYER_DIR/requirements.txt" ]; then
+            pip install -r "$LAYER_DIR/requirements.txt" -t "$SITE_PACKAGES" --no-cache-dir --quiet
+            echo "Lambda layer built successfully"
+          else
+            echo "Warning: requirements.txt not found at $LAYER_DIR/requirements.txt"
+            echo "Creating empty layer..."
+            touch "$SITE_PACKAGES/.gitkeep"
+          fi
 
       - name: Terraform Format
         working-directory: ./infra

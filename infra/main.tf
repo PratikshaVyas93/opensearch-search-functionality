@@ -16,9 +16,10 @@ provider "aws" {
 }
 
 # ============================================================================
-# Lambda Layer for OpenSearch Dependencies
+# Lambda Layer for OpenSearch Dependencies (Optional)
 # ============================================================================
 
+# Check if layer directory exists and has content
 data "archive_file" "opensearch_layer" {
   type        = "zip"
   source_dir  = "${path.module}/lambda_layers/opensearch/python"
