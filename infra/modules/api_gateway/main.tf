@@ -21,6 +21,11 @@ resource "aws_cloudwatch_log_group" "api_logs" {
   name              = "/aws/apigateway/${var.api_name}"
   retention_in_days = 7
 
+  # Prevent failure if log group already exists from a previous deploy
+  lifecycle {
+    ignore_changes = all
+  }
+
   tags = {
     Name        = "${var.api_name}-logs"
     Environment = var.env
