@@ -46,6 +46,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
 
       - name: Build Lambda Layer
         run: |
