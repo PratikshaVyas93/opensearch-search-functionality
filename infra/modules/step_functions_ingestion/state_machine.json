@@ -1,51 +1,26 @@
 {
-  "Comment": "Document Ingestion Workflow - Processes documents through Document Processor and Embedding Generator",
+  "Comment": "Document ingestion workflow - processes documents and generates embeddings",
   "StartAt": "ProcessDocument",
   "States": {
     "ProcessDocument": {
       "Type": "Task",
       "Resource": "${document_processor_lambda_arn}",
-      "Parameters": {
-        "bucket.$": "$.detail.bucket.name",
-        "key.$": "$.detail.object.key"
-      },
-      "ResultPath": "$.processorOutput",
       "Next": "GenerateEmbeddings",
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
           "Next": "ProcessingFailed"
         }
-      ],
-      "Retry": [
-        {
-          "ErrorEquals": ["States.TaskFailed"],
-          "IntervalSeconds": 2,
-          "MaxAttempts": 3,
-          "BackoffRate": 2.0
-        }
       ]
     },
     "GenerateEmbeddings": {
       "Type": "Task",
       "Resource": "${embedding_generator_lambda_arn}",
-      "Parameters": {
-        "body.$": "$.processorOutput.body"
-      },
-      "ResultPath": "$.embeddingOutput",
       "Next": "ProcessingSucceeded",
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
           "Next": "ProcessingFailed"
-        }
-      ],
-      "Retry": [
-        {
-          "ErrorEquals": ["States.TaskFailed"],
-          "IntervalSeconds": 2,
-          "MaxAttempts": 3,
-          "BackoffRate": 2.0
         }
       ]
     },
@@ -55,7 +30,7 @@
     "ProcessingFailed": {
       "Type": "Fail",
       "Error": "DocumentProcessingFailed",
-      "Cause": "Failed to process document through ingestion pipeline"
+      "Cause": "Failed to process document or generate embeddings"
     }
   }
 }

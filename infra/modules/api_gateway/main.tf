@@ -61,7 +61,7 @@ resource "aws_apigatewayv2_integration" "search_lambda" {
   integration_type       = "AWS_PROXY"
   integration_method     = "POST"
   payload_format_version = "2.0"
-  target                 = var.search_lambda_invoke_arn
+  integration_uri        = var.search_lambda_invoke_arn
 }
 
 resource "aws_apigatewayv2_route" "search" {
@@ -84,7 +84,7 @@ resource "aws_apigatewayv2_integration" "suggestions_lambda" {
   integration_type       = "AWS_PROXY"
   integration_method     = "POST"
   payload_format_version = "2.0"
-  target                 = var.suggestions_lambda_invoke_arn
+  integration_uri        = var.suggestions_lambda_invoke_arn
 }
 
 resource "aws_apigatewayv2_route" "suggestions" {

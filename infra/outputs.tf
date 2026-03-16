@@ -78,17 +78,3 @@ output "state_machine_name" {
   description = "Name of the Step Functions state machine"
   value       = module.step_functions_ingestion.state_machine_name
 }
-
-# ============================================================================
-# Bedrock Outputs
-# ============================================================================
-
-output "knowledge_base_id" {
-  description = "ID of the Bedrock Knowledge Base"
-  value       = module.bedrock_knowledge_base.knowledge_base_id
-}
-
-output "knowledge_base_arn" {
-  description = "ARN of the Bedrock Knowledge Base"
-  value       = module.bedrock_knowledge_base.knowledge_base_arn
-}

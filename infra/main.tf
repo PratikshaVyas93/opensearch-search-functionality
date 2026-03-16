@@ -100,7 +100,8 @@ module "src_bootstrap" {
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
-    module.iam
+    module.iam,
+    module.opensearch_collection
   ]
 }
 
@@ -116,7 +117,8 @@ module "src_search" {
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
-    module.iam
+    module.iam,
+    module.opensearch_collection
   ]
 }
 
@@ -132,7 +134,8 @@ module "src_suggestions" {
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
   depends_on = [
-    module.iam
+    module.iam,
+    module.opensearch_collection
   ]
 }
 
@@ -162,7 +165,8 @@ module "src_embedding" {
   bedrock_model_id     = var.bedrock_model_id
 
   depends_on = [
-    module.iam
+    module.iam,
+    module.opensearch_collection
   ]
 }
 
@@ -228,7 +232,7 @@ module "step_functions_ingestion" {
 }
 
 # ============================================================================
-# Phase 5: API & Bedrock
+# Phase 5: API Gateway
 # ============================================================================
 
 module "api_gateway" {
@@ -245,22 +249,5 @@ module "api_gateway" {
   depends_on = [
     module.src_search,
     module.src_suggestions
-  ]
-}
-
-module "bedrock_knowledge_base" {
-  source = "./modules/bedrock_knowledge_base"
-
-  knowledge_base_name           = "${var.env}-${var.project_name}-kb"
-  env                           = var.env
-  project_name                  = var.project_name
-  opensearch_collection_arn     = module.opensearch_collection.collection_arn
-  s3_bucket_arn                 = module.s3_documents.bucket_arn
-  bedrock_embedding_model_id    = var.bedrock_model_id
-
-  depends_on = [
-    module.opensearch_collection,
-    module.s3_documents,
-    module.src_bootstrap
   ]
 }
