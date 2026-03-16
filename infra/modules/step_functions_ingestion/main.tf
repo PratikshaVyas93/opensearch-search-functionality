@@ -4,8 +4,7 @@
 # Read the state machine definition
 locals {
   state_machine_definition = templatefile("${path.module}/state_machine.json", {
-    document_processor_lambda_arn  = var.document_processor_lambda_arn
-    embedding_generator_lambda_arn = var.embedding_generator_lambda_arn
+    indexer_lambda_arn = var.indexer_lambda_arn
   })
 }
 

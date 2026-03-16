@@ -108,6 +108,9 @@ jobs:
           LAYER_DIR="infra/lambda_layers/opensearch"
           SITE_PACKAGES="$LAYER_DIR/python/lib/python3.13/site-packages"
 
+          echo "=== Workspace structure ==="
+          find infra/lambda_layers -type f
+
           echo "Creating directory structure..."
           mkdir -p "$SITE_PACKAGES"
 

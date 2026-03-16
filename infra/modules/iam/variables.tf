@@ -23,14 +23,4 @@ variable "s3_bucket_arn" {
   type        = string
 }
 
-variable "document_processor_lambda_arn" {
-  description = "ARN of the document processor Lambda function"
-  type        = string
-  default     = ""
-}
 
-variable "embedding_generator_lambda_arn" {
-  description = "ARN of the embedding generator Lambda function"
-  type        = string
-  default     = ""
-}

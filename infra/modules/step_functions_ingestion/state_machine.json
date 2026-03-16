@@ -4,7 +4,7 @@
   "States": {
     "IndexMetadataAndSuggestions": {
       "Type": "Task",
-      "Resource": "${document_processor_lambda_arn}",
+      "Resource": "${indexer_lambda_arn}",
       "Next": "IngestionSucceeded",
       "Catch": [
         {

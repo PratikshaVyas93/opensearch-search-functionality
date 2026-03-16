@@ -18,7 +18,7 @@ output "opensearch_collection_name" {
 }
 
 # ============================================================================
-# Lambda Function Outputs
+# Lambda Outputs
 # ============================================================================
 
 output "index_bootstrap_lambda_name" {
@@ -36,14 +36,9 @@ output "suggestions_lambda_name" {
   value       = module.src_suggestions.lambda_function_name
 }
 
-output "document_processor_lambda_name" {
-  description = "Name of the document processor Lambda function"
-  value       = module.src_processor.lambda_function_name
-}
-
-output "embedding_generator_lambda_name" {
-  description = "Name of the embedding generator Lambda function"
-  value       = module.src_embedding.lambda_function_name
+output "indexer_lambda_name" {
+  description = "Name of the metadata/suggestions indexer Lambda function"
+  value       = module.src_indexer.lambda_function_name
 }
 
 # ============================================================================

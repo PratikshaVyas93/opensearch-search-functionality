@@ -78,13 +78,11 @@ data "aws_caller_identity" "current" {}
 module "iam" {
   source = "./modules/iam"
 
-  env                            = var.env
-  project_name                   = var.project_name
-  region                         = var.region
-  opensearch_collection_arn      = module.opensearch_collection.collection_arn
-  s3_bucket_arn                  = module.s3_documents.bucket_arn
-  document_processor_lambda_arn  = ""
-  embedding_generator_lambda_arn = ""
+  env                       = var.env
+  project_name              = var.project_name
+  region                    = var.region
+  opensearch_collection_arn = module.opensearch_collection.collection_arn
+  s3_bucket_arn             = module.s3_documents.bucket_arn
 
   depends_on = [
     module.opensearch_collection,
@@ -209,14 +207,13 @@ resource "aws_iam_role_policy" "eventbridge_policy" {
 module "step_functions_ingestion" {
   source = "./modules/step_functions_ingestion"
 
-  state_machine_name             = "${var.env}-${var.project_name}-ingestion"
-  step_functions_role_arn        = module.iam.step_functions_ingestion_role_arn
-  document_processor_lambda_arn  = module.src_indexer.lambda_arn
-  embedding_generator_lambda_arn = module.src_indexer.lambda_arn
-  s3_bucket_name                 = module.s3_documents.bucket_name
-  eventbridge_role_arn           = aws_iam_role.eventbridge_role.arn
-  env                            = var.env
-  project_name                   = var.project_name
+  state_machine_name      = "${var.env}-${var.project_name}-ingestion"
+  step_functions_role_arn = module.iam.step_functions_ingestion_role_arn
+  indexer_lambda_arn      = module.src_indexer.lambda_arn
+  s3_bucket_name          = module.s3_documents.bucket_name
+  eventbridge_role_arn    = aws_iam_role.eventbridge_role.arn
+  env                     = var.env
+  project_name            = var.project_name
 
   depends_on = [
     module.src_indexer,

@@ -13,16 +13,6 @@ output "suggestions_lambda_role_arn" {
   value       = aws_iam_role.suggestions_lambda_role.arn
 }
 
-output "document_processor_lambda_role_arn" {
-  description = "ARN of the indexer Lambda role (replaces processor + embedding roles)"
-  value       = aws_iam_role.indexer_lambda_role.arn
-}
-
-output "embedding_generator_lambda_role_arn" {
-  description = "ARN of the indexer Lambda role (replaces processor + embedding roles)"
-  value       = aws_iam_role.indexer_lambda_role.arn
-}
-
 output "indexer_lambda_role_arn" {
   description = "ARN of the metadata/suggestions indexer Lambda role"
   value       = aws_iam_role.indexer_lambda_role.arn

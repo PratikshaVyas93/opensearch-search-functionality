@@ -1,19 +1,18 @@
-# Bedrock Knowledge Base Module - RAG knowledge base for document retrieval
-# Integrates with OpenSearch vector store and S3 data source
+# Bedrock Knowledge Base Module
+# Uses aws_bedrockagent_knowledge_base — available in hashicorp/aws >= 5.31
 
-# Data sources for current AWS account and region
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
-# Create IAM role for Bedrock Knowledge Base
+# IAM role for Bedrock Knowledge Base
 data "aws_iam_policy_document" "bedrock_kb_trust_policy" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
       identifiers = ["bedrock.amazonaws.com"]
     }
-    actions = ["sts:AssumeRole"]
   }
 }
 
@@ -28,47 +27,37 @@ resource "aws_iam_role" "bedrock_kb_role" {
   }
 }
 
-# IAM policy for Bedrock Knowledge Base
 resource "aws_iam_role_policy" "bedrock_kb_policy" {
   name = "${var.env}-${var.project_name}-bedrock-kb-policy"
   role = aws_iam_role.bedrock_kb_role.id
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "S3Access"
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          var.s3_bucket_arn,
-          "${var.s3_bucket_arn}/*"
-        ]
+        Sid      = "S3Access"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:ListBucket"]
+        Resource = [var.s3_bucket_arn, "${var.s3_bucket_arn}/*"]
       },
       {
-        Sid    = "OpenSearchAccess"
-        Effect = "Allow"
-        Action = [
-          "aoss:APIAccessAll"
-        ]
+        Sid      = "OpenSearchAccess"
+        Effect   = "Allow"
+        Action   = ["aoss:APIAccessAll"]
         Resource = var.opensearch_collection_arn
       },
       {
-        Sid    = "BedrockEmbeddings"
-        Effect = "Allow"
-        Action = [
-          "bedrock:InvokeModel"
-        ]
+        Sid      = "BedrockEmbeddings"
+        Effect   = "Allow"
+        Action   = ["bedrock:InvokeModel"]
         Resource = "arn:aws:bedrock:${data.aws_region.current.name}::foundation-model/${var.bedrock_embedding_model_id}"
       }
     ]
   })
 }
 
-# Create Bedrock Knowledge Base
-resource "aws_bedrock_knowledge_base" "this" {
+# Bedrock Knowledge Base — correct resource name for aws provider >= 5.31
+resource "aws_bedrockagent_knowledge_base" "this" {
   name     = var.knowledge_base_name
   role_arn = aws_iam_role.bedrock_kb_role.arn
 
@@ -98,14 +87,12 @@ resource "aws_bedrock_knowledge_base" "this" {
     Project     = var.project_name
   }
 
-  depends_on = [
-    aws_iam_role_policy.bedrock_kb_policy
-  ]
+  depends_on = [aws_iam_role_policy.bedrock_kb_policy]
 }
 
-# Create data source for S3
-resource "aws_bedrock_data_source" "s3" {
-  knowledge_base_id = aws_bedrock_knowledge_base.this.id
+# S3 data source for the Knowledge Base
+resource "aws_bedrockagent_data_source" "s3" {
+  knowledge_base_id = aws_bedrockagent_knowledge_base.this.id
   name              = "${var.env}-${var.project_name}-s3-source"
 
   data_source_configuration {
@@ -114,8 +101,4 @@ resource "aws_bedrock_data_source" "s3" {
       bucket_arn = var.s3_bucket_arn
     }
   }
-
-  depends_on = [
-    aws_bedrock_knowledge_base.this
-  ]
 }
