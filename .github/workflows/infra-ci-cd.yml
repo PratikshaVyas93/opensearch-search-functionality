@@ -1,0 +1,140 @@
+name: Infrastructure CI/CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment (dev, stg, prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: '15032026_aws_kiro_opensearch'
+        options:
+          - 15032026_aws_kiro_opensearch
+
+env:
+  AWS_REGION: us-east-1
+  TERRAFORM_VERSION: 1.5.0
+
+jobs:
+  deploy:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Format Check
+        working-directory: ./infra
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        working-directory: ./infra
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ./infra
+        run: terraform validate
+
+      - name: Terraform Plan - Core Infrastructure
+        working-directory: ./infra
+        run: |
+          terraform plan \
+            -var="env=${{ github.event.inputs.environment }}" \
+            -out=tfplan_core
+
+      - name: Terraform Apply - Core Infrastructure
+        working-directory: ./infra
+        run: |
+          terraform apply -auto-approve tfplan_core
+
+      - name: Get Outputs
+        working-directory: ./infra
+        id: tf_outputs
+        run: |
+          echo "index_bootstrap_lambda=$(terraform output -raw index_bootstrap_lambda_name)" >> $GITHUB_OUTPUT
+          echo "opensearch_endpoint=$(terraform output -raw opensearch_endpoint)" >> $GITHUB_OUTPUT
+
+      - name: Invoke Index Bootstrap Lambda
+        run: |
+          aws lambda invoke \
+            --function-name ${{ steps.tf_outputs.outputs.index_bootstrap_lambda }} \
+            --region ${{ env.AWS_REGION }} \
+            /tmp/bootstrap_response.json
+          
+          echo "Bootstrap Lambda Response:"
+          cat /tmp/bootstrap_response.json
+
+      - name: Wait for Index Bootstrap
+        run: sleep 10
+
+      - name: Terraform Plan - Dependent Infrastructure
+        working-directory: ./infra
+        run: |
+          terraform plan \
+            -var="env=${{ github.event.inputs.environment }}" \
+            -out=tfplan_dependent
+
+      - name: Terraform Apply - Dependent Infrastructure
+        working-directory: ./infra
+        run: |
+          terraform apply -auto-approve tfplan_dependent
+
+      - name: Get Final Outputs
+        working-directory: ./infra
+        id: final_outputs
+        run: |
+          echo "api_endpoint=$(terraform output -raw api_endpoint)" >> $GITHUB_OUTPUT
+          echo "search_endpoint=$(terraform output -raw search_endpoint)" >> $GITHUB_OUTPUT
+          echo "suggestions_endpoint=$(terraform output -raw suggestions_endpoint)" >> $GITHUB_OUTPUT
+          echo "knowledge_base_id=$(terraform output -raw knowledge_base_id)" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.event.inputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### API Endpoints" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Base:** ${{ steps.final_outputs.outputs.api_endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Search:** ${{ steps.final_outputs.outputs.search_endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Suggestions:** ${{ steps.final_outputs.outputs.suggestions_endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Knowledge Base" >> $GITHUB_STEP_SUMMARY
+          echo "- **ID:** ${{ steps.final_outputs.outputs.knowledge_base_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Test the search endpoint: \`curl '${{ steps.final_outputs.outputs.search_endpoint }}?query=test'\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Test suggestions: \`curl '${{ steps.final_outputs.outputs.suggestions_endpoint }}?prefix=test'\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Upload documents to S3 to trigger ingestion pipeline" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup Terraform Plan Files
+        if: always()
+        working-directory: ./infra
+        run: |
+          rm -f tfplan_core tfplan_dependent
