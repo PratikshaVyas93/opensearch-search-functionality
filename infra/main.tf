@@ -48,7 +48,7 @@ module "s3_documents" {
 module "opensearch_collection" {
   source = "./modules/opensearch_collection"
 
-  collection_name = "${var.env}-${var.project_name}-collection"
+  collection_name = "${var.env}-navco-search"
   env             = var.env
   project_name    = var.project_name
 
