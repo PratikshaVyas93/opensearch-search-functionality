@@ -21,7 +21,7 @@ resource "aws_lambda_function" "search" {
   environment {
     variables = {
       OPENSEARCH_ENDPOINT = var.opensearch_endpoint
-      AWS_REGION          = var.region
+      REGION              = var.region
     }
   }
 

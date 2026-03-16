@@ -17,14 +17,17 @@ logger.setLevel(logging.INFO)
 
 # Get environment variables
 OPENSEARCH_ENDPOINT = os.environ.get('OPENSEARCH_ENDPOINT')
-AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
 BEDROCK_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'amazon.titan-embed-text-v1')
+
+# Use boto3 session for region - Lambda sets AWS_REGION automatically
+session = boto3.Session()
+AWS_REGION = session.region_name or 'us-east-1'
 
 # Initialize AWS clients
 bedrock_client = boto3.client('bedrock-runtime', region_name=AWS_REGION)
 
 # Initialize AWS credentials for OpenSearch
-credentials = boto3.Session().get_credentials()
+credentials = session.get_credentials()
 auth = AWS4Auth(
     credentials.access_key,
     credentials.secret_key,
