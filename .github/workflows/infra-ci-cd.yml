@@ -103,8 +103,10 @@ jobs:
         working-directory: ./infra
         id: tf_outputs
         run: |
-          echo "index_bootstrap_lambda=$(terraform output -raw index_bootstrap_lambda_name)" >> $GITHUB_OUTPUT
-          echo "opensearch_endpoint=$(terraform output -raw opensearch_endpoint)" >> $GITHUB_OUTPUT
+          INDEX_BOOTSTRAP=$(terraform output -raw index_bootstrap_lambda_name)
+          OPENSEARCH_ENDPOINT=$(terraform output -raw opensearch_endpoint)
+          echo "index_bootstrap_lambda=$INDEX_BOOTSTRAP" >> $GITHUB_OUTPUT
+          echo "opensearch_endpoint=$OPENSEARCH_ENDPOINT" >> $GITHUB_OUTPUT
 
       - name: Invoke Index Bootstrap Lambda
         run: |
@@ -135,10 +137,14 @@ jobs:
         working-directory: ./infra
         id: final_outputs
         run: |
-          echo "api_endpoint=$(terraform output -raw api_endpoint)" >> $GITHUB_OUTPUT
-          echo "search_endpoint=$(terraform output -raw search_endpoint)" >> $GITHUB_OUTPUT
-          echo "suggestions_endpoint=$(terraform output -raw suggestions_endpoint)" >> $GITHUB_OUTPUT
-          echo "state_machine_arn=$(terraform output -raw state_machine_arn)" >> $GITHUB_OUTPUT
+          API_ENDPOINT=$(terraform output -raw api_endpoint)
+          SEARCH_ENDPOINT=$(terraform output -raw search_endpoint)
+          SUGGESTIONS_ENDPOINT=$(terraform output -raw suggestions_endpoint)
+          STATE_MACHINE_ARN=$(terraform output -raw state_machine_arn)
+          echo "api_endpoint=$API_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "search_endpoint=$SEARCH_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "suggestions_endpoint=$SUGGESTIONS_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "state_machine_arn=$STATE_MACHINE_ARN" >> $GITHUB_OUTPUT
 
       - name: Deployment Summary
         run: |
