@@ -29,7 +29,7 @@ provider "aws" {
 # Check if layer directory exists and has content
 data "archive_file" "opensearch_layer" {
   type        = "zip"
-  source_dir  = "${path.module}/lambda_layers/opensearch/python"
+  source_dir  = "${path.module}/lambda_layers/opensearch"
   output_path = "${path.module}/.terraform/opensearch_layer.zip"
 }
 

@@ -51,20 +51,21 @@ jobs:
       - name: Build Lambda Layer
         run: |
           set -e
-          LAYER_DIR="infra/lambda_layers/opensearch/python"
-          SITE_PACKAGES="$LAYER_DIR/lib/python3.13/site-packages"
+          LAYER_DIR="infra/lambda_layers/opensearch"
+          SITE_PACKAGES="$LAYER_DIR/python/lib/python3.13/site-packages"
           
           echo "Creating directory structure..."
           mkdir -p "$SITE_PACKAGES"
           
           echo "Installing Python packages..."
-          if [ -f "$LAYER_DIR/requirements.txt" ]; then
-            pip install -r "$LAYER_DIR/requirements.txt" -t "$SITE_PACKAGES" --no-cache-dir --quiet
+          if [ -f "$LAYER_DIR/python/requirements.txt" ]; then
+            pip install -r "$LAYER_DIR/python/requirements.txt" -t "$SITE_PACKAGES" --no-cache-dir --quiet
             echo "Lambda layer built successfully"
+            echo "Installed packages:"
+            ls "$SITE_PACKAGES"
           else
-            echo "Warning: requirements.txt not found at $LAYER_DIR/requirements.txt"
-            echo "Creating empty layer..."
-            touch "$SITE_PACKAGES/.gitkeep"
+            echo "ERROR: requirements.txt not found at $LAYER_DIR/python/requirements.txt"
+            exit 1
           fi
 
       - name: Create Terraform State Bucket
