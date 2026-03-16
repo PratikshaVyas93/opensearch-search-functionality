@@ -1,5 +1,4 @@
 # API Gateway Module - HTTP API for search and suggestions
-# Provides REST endpoints for document search and autocomplete suggestions
 
 resource "aws_apigatewayv2_api" "this" {
   name          = var.api_name
