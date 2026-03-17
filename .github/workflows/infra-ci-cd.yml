@@ -189,6 +189,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ""
 
       - name: Get Bootstrap Lambda Name
         if: ${{ github.event.inputs.action == 'deploy' }}
@@ -209,8 +210,8 @@ jobs:
           echo "Bootstrap Lambda Response:"
           cat /tmp/bootstrap_response.json
 
-          # Fail the pipeline if bootstrap reported an error
-          if grep -q '"errorType"' /tmp/bootstrap_response.json; then
+          # Fail the pipeline if bootstrap reported an error (statusCode 503 or Lambda errorType)
+          if grep -q '"statusCode": 503\|"statusCode":503\|"errorType"' /tmp/bootstrap_response.json; then
             echo "Bootstrap Lambda returned an error — aborting before Knowledge Base creation"
             exit 1
           fi
