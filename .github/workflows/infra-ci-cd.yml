@@ -162,6 +162,34 @@ jobs:
             -target=module.step_functions_ingestion \
             -target=module.api_gateway
 
+      - name: Delete Stale vector-index (wrong engine from previous deploy)
+        if: ${{ github.event.inputs.action == 'deploy' }}
+        working-directory: ./infra
+        run: |
+          OPENSEARCH_ENDPOINT=$(terraform output -json opensearch_endpoint | jq -r '.' | sed 's|https://||')
+          echo "OpenSearch endpoint: $OPENSEARCH_ENDPOINT"
+          # Delete vector-index if it exists — bootstrap will recreate with correct faiss engine
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --aws-sigv4 "aws:amz:${{ env.AWS_REGION }}:aoss" \
+            --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+            -H "x-amz-security-token: $AWS_SESSION_TOKEN" \
+            "https://${OPENSEARCH_ENDPOINT}/vector-index")
+          echo "vector-index status: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "Deleting stale vector-index..."
+            curl -s -X DELETE \
+              --aws-sigv4 "aws:amz:${{ env.AWS_REGION }}:aoss" \
+              --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+              -H "x-amz-security-token: $AWS_SESSION_TOKEN" \
+              "https://${OPENSEARCH_ENDPOINT}/vector-index"
+            echo "vector-index deleted"
+          else
+            echo "vector-index does not exist, nothing to delete"
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
       - name: Get Bootstrap Lambda Name
         if: ${{ github.event.inputs.action == 'deploy' }}
         working-directory: ./infra

@@ -88,16 +88,15 @@ def create_metadata_index():
 
 
 def create_vector_index():
-    """Create vector index for embeddings"""
+    """Create vector index for embeddings — uses faiss engine required by Bedrock KB"""
     index_name = 'vector-index'
-    
+
     try:
-        # Check if index already exists
+        # Always delete and recreate to ensure correct engine (faiss required by Bedrock KB)
         if client.indices.exists(index=index_name):
-            logger.info(f"Index {index_name} already exists")
-            return True
-        
-        # Create vector index with vector field
+            logger.info(f"Deleting existing {index_name} to ensure correct faiss engine")
+            client.indices.delete(index=index_name)
+
         index_body = {
             'settings': {
                 'index': {
@@ -116,8 +115,8 @@ def create_vector_index():
                         'dimension': 1536,
                         'method': {
                             'name': 'hnsw',
-                            'space_type': 'cosinesimil',
-                            'engine': 'nmslib',
+                            'space_type': 'l2',
+                            'engine': 'faiss',
                             'parameters': {
                                 'ef_construction': 256,
                                 'm': 16
@@ -127,11 +126,11 @@ def create_vector_index():
                 }
             }
         }
-        
+
         client.indices.create(index=index_name, body=index_body)
-        logger.info(f"Created index {index_name}")
+        logger.info(f"Created {index_name} with faiss engine")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error creating vector index: {str(e)}")
         raise
