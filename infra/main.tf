@@ -11,10 +11,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "dev-opensearch-navco-search-tfstate"
-    key            = "infra/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
+    bucket  = "dev-opensearch-navco-search-tfstate"
+    key     = "infra/terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
   }
 }
 
@@ -22,11 +22,12 @@ provider "aws" {
   region = var.region
 }
 
+data "aws_caller_identity" "current" {}
+
 # ============================================================================
-# Lambda Layer for OpenSearch Dependencies (Optional)
+# Lambda Layer
 # ============================================================================
 
-# Check if layer directory exists and has content
 data "archive_file" "opensearch_layer" {
   type        = "zip"
   source_dir  = "${path.module}/lambda_layers/opensearch"
@@ -59,13 +60,6 @@ module "opensearch_collection" {
   env             = var.env
   project_name    = var.project_name
 
-module "opensearch_collection" {
-  source = "./modules/opensearch_collection"
-
-  collection_name = "${var.env}-navco-search"
-  env             = var.env
-  project_name    = var.project_name
-
   access_principal_arns = [
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-index-bootstrap-role",
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-search-role",
@@ -74,14 +68,12 @@ module "opensearch_collection" {
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-bedrock-kb-role"
   ]
 
-  # Caller identity = GitHub Actions role (CI/CD) + any extra console users from tfvars
+  # CI/CD role gets access automatically; add console users via var.dashboard_user_arns in tfvars
   dashboard_user_arns = concat(
     [data.aws_caller_identity.current.arn],
     var.dashboard_user_arns
   )
 }
-
-data "aws_caller_identity" "current" {}
 
 # ============================================================================
 # Phase 2: IAM Roles and Policies
@@ -117,10 +109,7 @@ module "src_bootstrap" {
   project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
-  depends_on = [
-    module.iam,
-    module.opensearch_collection
-  ]
+  depends_on = [module.iam, module.opensearch_collection]
 }
 
 module "src_search" {
@@ -134,10 +123,7 @@ module "src_search" {
   project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
-  depends_on = [
-    module.iam,
-    module.opensearch_collection
-  ]
+  depends_on = [module.iam, module.opensearch_collection]
 }
 
 module "src_suggestions" {
@@ -151,10 +137,7 @@ module "src_suggestions" {
   project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
-  depends_on = [
-    module.iam,
-    module.opensearch_collection
-  ]
+  depends_on = [module.iam, module.opensearch_collection]
 }
 
 module "src_indexer" {
@@ -168,10 +151,7 @@ module "src_indexer" {
   project_name         = var.project_name
   opensearch_layer_arn = aws_lambda_layer_version.opensearch.arn
 
-  depends_on = [
-    module.iam,
-    module.opensearch_collection
-  ]
+  depends_on = [module.iam, module.opensearch_collection]
 }
 
 # ============================================================================
@@ -183,15 +163,11 @@ resource "aws_iam_role" "eventbridge_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "events.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "events.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
   })
 
   tags = {
@@ -202,17 +178,15 @@ resource "aws_iam_role" "eventbridge_role" {
 }
 
 resource "aws_iam_role_policy" "eventbridge_policy" {
-  name   = "${var.env}-${var.project_name}-eventbridge-policy"
-  role   = aws_iam_role.eventbridge_role.id
+  name = "${var.env}-${var.project_name}-eventbridge-policy"
+  role = aws_iam_role.eventbridge_role.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["states:StartExecution"]
-        Resource = "*"
-      }
-    ]
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["states:StartExecution"]
+      Resource = "*"
+    }]
   })
 }
 
@@ -227,10 +201,7 @@ module "step_functions_ingestion" {
   env                     = var.env
   project_name            = var.project_name
 
-  depends_on = [
-    module.src_indexer,
-    module.iam
-  ]
+  depends_on = [module.src_indexer, module.iam]
 }
 
 # ============================================================================
@@ -269,8 +240,5 @@ module "api_gateway" {
   suggestions_lambda_invoke_arn    = module.src_suggestions.lambda_invoke_arn
   suggestions_lambda_function_name = module.src_suggestions.lambda_function_name
 
-  depends_on = [
-    module.src_search,
-    module.src_suggestions
-  ]
+  depends_on = [module.src_search, module.src_suggestions]
 }

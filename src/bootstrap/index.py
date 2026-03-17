@@ -110,6 +110,7 @@ def create_vector_index():
                     'document_id': {'type': 'keyword'},
                     'chunk_id': {'type': 'keyword'},
                     'text': {'type': 'text'},
+                    'metadata': {'type': 'text'},
                     'embedding': {
                         'type': 'knn_vector',
                         'dimension': 1536,
