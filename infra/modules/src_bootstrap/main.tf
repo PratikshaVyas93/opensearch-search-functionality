@@ -33,6 +33,10 @@ resource "aws_lambda_function" "index_bootstrap" {
     Project     = var.project_name
   }
 
+  lifecycle {
+    ignore_changes = [source_code_hash]
+  }
+
   depends_on = [
     data.archive_file.index_bootstrap_lambda_zip
   ]

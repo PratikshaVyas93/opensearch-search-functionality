@@ -9,6 +9,10 @@ resource "aws_s3_bucket" "documents" {
     Environment = var.env
     Project     = var.project_name
   }
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # Enable versioning for document history tracking

@@ -96,6 +96,10 @@ resource "aws_opensearchserverless_collection" "this" {
     Project     = var.project_name
   }
 
+  lifecycle {
+    ignore_changes = all
+  }
+
   depends_on = [
     aws_opensearchserverless_security_policy.encryption,
     aws_opensearchserverless_security_policy.network,

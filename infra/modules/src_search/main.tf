@@ -33,6 +33,10 @@ resource "aws_lambda_function" "search" {
     Project     = var.project_name
   }
 
+  lifecycle {
+    ignore_changes = [source_code_hash]
+  }
+
   depends_on = [
     data.archive_file.search_lambda_zip
   ]
