@@ -32,8 +32,4 @@ resource "aws_lambda_function" "index_bootstrap" {
     Environment = var.env
     Project     = var.project_name
   }
-
-  lifecycle {
-    ignore_changes = []
-  }
 }

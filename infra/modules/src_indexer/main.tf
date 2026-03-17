@@ -27,8 +27,4 @@ resource "aws_lambda_function" "indexer" {
     Environment = var.env
     Project     = var.project_name
   }
-
-  lifecycle {
-    ignore_changes = [source_code_hash]
-  }
 }
