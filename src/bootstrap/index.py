@@ -103,8 +103,7 @@ def create_vector_index():
                 'index': {
                     'number_of_shards': 1,
                     'number_of_replicas': 0,
-                    'knn': True,
-                    'knn.algo_param.ef_construction': 256
+                    'knn': True
                 }
             },
             'mappings': {
