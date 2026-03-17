@@ -17,3 +17,9 @@ variable "access_principal_arns" {
   description = "List of principal ARNs that can access the collection"
   type        = list(string)
 }
+
+variable "dashboard_user_arns" {
+  description = "IAM user or role ARNs that need dashboard access (e.g. your console user)"
+  type        = list(string)
+  default     = []
+}

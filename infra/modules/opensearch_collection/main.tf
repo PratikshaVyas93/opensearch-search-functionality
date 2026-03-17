@@ -47,23 +47,42 @@ resource "aws_opensearchserverless_access_policy" "this" {
   type        = "data"
   description = "Data access policy for ${var.collection_name}"
 
-  policy = jsonencode([
-    {
-      Rules = [
-        {
-          ResourceType = "collection"
-          Resource     = ["collection/${var.collection_name}"]
-          Permission   = ["aoss:*"]
-        },
-        {
-          ResourceType = "index"
-          Resource     = ["index/${var.collection_name}/*"]
-          Permission   = ["aoss:*"]
-        }
-      ]
-      Principal = var.access_principal_arns
-    }
-  ])
+  policy = jsonencode(concat(
+    [
+      {
+        Rules = [
+          {
+            ResourceType = "collection"
+            Resource     = ["collection/${var.collection_name}"]
+            Permission   = ["aoss:*"]
+          },
+          {
+            ResourceType = "index"
+            Resource     = ["index/${var.collection_name}/*"]
+            Permission   = ["aoss:*"]
+          }
+        ]
+        Principal = var.access_principal_arns
+      }
+    ],
+    length(var.dashboard_user_arns) > 0 ? [
+      {
+        Rules = [
+          {
+            ResourceType = "collection"
+            Resource     = ["collection/${var.collection_name}"]
+            Permission   = ["aoss:*"]
+          },
+          {
+            ResourceType = "index"
+            Resource     = ["index/${var.collection_name}/*"]
+            Permission   = ["aoss:*"]
+          }
+        ]
+        Principal = var.dashboard_user_arns
+      }
+    ] : []
+  ))
 }
 
 # OpenSearch Serverless collection for vector search

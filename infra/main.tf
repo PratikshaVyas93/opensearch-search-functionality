@@ -59,7 +59,6 @@ module "opensearch_collection" {
   env             = var.env
   project_name    = var.project_name
 
-  # Placeholder ARNs - will be updated after IAM module creation
   access_principal_arns = [
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-index-bootstrap-role",
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-search-role",
@@ -67,6 +66,10 @@ module "opensearch_collection" {
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-indexer-role",
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-bedrock-kb-role"
   ]
+
+  # Dynamically grant dashboard access to whoever is running Terraform
+  # In CI/CD this is the GitHub Actions IAM role; locally it is your console user/role
+  dashboard_user_arns = [data.aws_caller_identity.current.arn]
 }
 
 data "aws_caller_identity" "current" {}
