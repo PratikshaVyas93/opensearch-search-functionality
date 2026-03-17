@@ -17,7 +17,13 @@ from requests_aws4auth import AWS4Auth
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-OPENSEARCH_ENDPOINT = os.environ.get('OPENSEARCH_ENDPOINT')
+OPENSEARCH_ENDPOINT = os.environ.get('OPENSEARCH_ENDPOINT', '')
+
+# Strip https:// prefix if present — the OpenSearch client constructs the URL itself
+if OPENSEARCH_ENDPOINT.startswith('https://'):
+    OPENSEARCH_ENDPOINT = OPENSEARCH_ENDPOINT[len('https://'):]
+elif OPENSEARCH_ENDPOINT.startswith('http://'):
+    OPENSEARCH_ENDPOINT = OPENSEARCH_ENDPOINT[len('http://'):]
 
 session = boto3.Session()
 AWS_REGION = session.region_name or 'us-east-1'

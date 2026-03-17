@@ -15,7 +15,13 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Get environment variables
-OPENSEARCH_ENDPOINT = os.environ.get('OPENSEARCH_ENDPOINT')
+OPENSEARCH_ENDPOINT = os.environ.get('OPENSEARCH_ENDPOINT', '')
+
+# Strip https:// prefix if present — the OpenSearch client constructs the URL itself
+if OPENSEARCH_ENDPOINT.startswith('https://'):
+    OPENSEARCH_ENDPOINT = OPENSEARCH_ENDPOINT[len('https://'):]
+elif OPENSEARCH_ENDPOINT.startswith('http://'):
+    OPENSEARCH_ENDPOINT = OPENSEARCH_ENDPOINT[len('http://'):]
 
 # Use boto3 session for region - Lambda sets AWS_REGION automatically
 session = boto3.Session()
