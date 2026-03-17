@@ -24,3 +24,9 @@ variable "bedrock_model_id" {
   type        = string
   default     = "amazon.titan-embed-text-v1"
 }
+
+variable "dashboard_user_arns" {
+  description = "Additional IAM user/role ARNs for OpenSearch dashboard access (your console users)"
+  type        = list(string)
+  default     = []
+}

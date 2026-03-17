@@ -59,6 +59,13 @@ module "opensearch_collection" {
   env             = var.env
   project_name    = var.project_name
 
+module "opensearch_collection" {
+  source = "./modules/opensearch_collection"
+
+  collection_name = "${var.env}-navco-search"
+  env             = var.env
+  project_name    = var.project_name
+
   access_principal_arns = [
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-index-bootstrap-role",
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-search-role",
@@ -67,9 +74,11 @@ module "opensearch_collection" {
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.env}-${var.project_name}-bedrock-kb-role"
   ]
 
-  # Dynamically grant dashboard access to whoever is running Terraform
-  # In CI/CD this is the GitHub Actions IAM role; locally it is your console user/role
-  dashboard_user_arns = [data.aws_caller_identity.current.arn]
+  # Caller identity = GitHub Actions role (CI/CD) + any extra console users from tfvars
+  dashboard_user_arns = concat(
+    [data.aws_caller_identity.current.arn],
+    var.dashboard_user_arns
+  )
 }
 
 data "aws_caller_identity" "current" {}
