@@ -146,7 +146,7 @@ IAM role `dev-opensearch-navco-search-processor-role` gives it read-only access 
 
 Second and final step in the pipeline. This is where the AI happens. It:
 
-1. Calls **Amazon Bedrock** (`amazon.titan-embed-text-v1` model) with the document text → gets back a 1536-dimension vector embedding
+1. Calls **Amazon Bedrock** (`amazon.titan-embed-text-v2:0` model) with the document text → gets back a 1024-dimension vector embedding
 2. Writes the document metadata to `metadata-index` in OpenSearch
 3. Writes the text + embedding vector to `vector-index` in OpenSearch (enables semantic/similarity search)
 4. Extracts keywords from the title and content, writes them to `suggestions-index` (powers autocomplete)
@@ -262,7 +262,7 @@ Terraform state is stored in S3 (`dev-opensearch-navco-search-tfstate`). This me
 env              = "dev"
 project_name     = "opensearch-navco-search"
 region           = "us-east-1"
-bedrock_model_id = "amazon.titan-embed-text-v1"
+bedrock_model_id = "amazon.titan-embed-text-v2:0"
 ```
 
 All resource names follow the pattern `{env}-{project_name}-{resource}`, e.g. `dev-opensearch-navco-search-search`. Changing `env` to `stg` or `prod` creates a completely separate set of resources with no overlap.

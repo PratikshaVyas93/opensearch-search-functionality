@@ -103,7 +103,7 @@ Deployment phases (enforced by `depends_on`):
 | `env` | `dev` | Prefixes all resource names. Validated to `dev`, `stg`, `prod` only. |
 | `project_name` | `opensearch-navco-search` | Second part of every resource name, e.g. `dev-opensearch-navco-search-search` |
 | `region` | `us-east-1` | AWS region for all resources |
-| `bedrock_model_id` | `amazon.titan-embed-text-v1` | Embedding model used by Bedrock KB (see Bedrock section for why this model) |
+| `bedrock_model_id` | `amazon.titan-embed-text-v2:0` | Embedding model used by Bedrock KB |
 
 All resource names follow the pattern `{env}-{project_name}-{resource-type}` to make them easy to identify in the AWS console and to avoid name collisions across environments.
 
@@ -231,15 +231,15 @@ The vector search path exists in the code but currently returns empty — it wou
 **Why Bedrock Knowledge Base instead of a custom embedding Lambda?**
 Building a custom embedding pipeline requires: calling Bedrock Titan Embed for each text chunk, managing chunking logic, handling retries, writing vectors to OpenSearch, and keeping it all in sync with S3. Bedrock Knowledge Base does all of this as a managed service. You configure it once and it handles the entire pipeline automatically whenever you trigger a sync.
 
-**Why `amazon.titan-embed-text-v1`?**
-This is Amazon's first-party embedding model. It produces 1536-dimensional vectors. Reasons for choosing it:
+**Why `amazon.titan-embed-text-v2:0`?**
+This is Amazon's second-generation embedding model. It produces 1024-dimensional vectors with improved accuracy over v1. Reasons for choosing it:
 - Native to AWS — no cross-region calls, lower latency, no data leaving AWS.
 - 1536 dimensions is the standard size for this model class (same as OpenAI Ada-002). It provides a good balance between semantic richness and storage/compute cost.
 - Supported natively by Bedrock Knowledge Base — no custom integration needed.
 - No per-token pricing complexity — straightforward cost model.
 
 **Why 1536 dimensions specifically?**
-The `embedding` field in `vector-index` is defined with `dimension: 1536` to match exactly what Titan Embed outputs. If the dimension in the index does not match the model output, OpenSearch will reject every write. 1536 is not arbitrary — it is the fixed output size of the `amazon.titan-embed-text-v1` model. If you switch to a different model (e.g. Titan Embed v2 = 1024 dims, Cohere = 1024 dims), you must recreate the vector index with the matching dimension.
+The `embedding` field in `vector-index` is defined with `dimension: 1536` to match exactly what Titan Embed outputs. If the dimension in the index does not match the model output, OpenSearch will reject every write. 1024 is not arbitrary — it is the fixed output size of the `amazon.titan-embed-text-v2:0` model. If you switch to a different model (e.g. Titan Embed v1 = 1536 dims, Cohere = 1024 dims), you must recreate the vector index with the matching dimension.
 
 **HNSW algorithm settings:**
 - `ef_construction: 256` — controls index build quality. Higher = better recall, slower indexing. 256 is a good production default.

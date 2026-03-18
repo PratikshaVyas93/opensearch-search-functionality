@@ -27,5 +27,5 @@ variable "s3_bucket_arn" {
 variable "bedrock_embedding_model_id" {
   description = "Bedrock embedding model ID for knowledge base"
   type        = string
-  default     = "amazon.titan-embed-text-v1"
+  default     = "amazon.titan-embed-text-v2:0"
 }

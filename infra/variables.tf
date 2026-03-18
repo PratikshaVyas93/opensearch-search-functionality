@@ -22,7 +22,7 @@ variable "region" {
 variable "bedrock_model_id" {
   description = "Bedrock model ID for embeddings"
   type        = string
-  default     = "amazon.titan-embed-text-v1"
+  default     = "amazon.titan-embed-text-v2:0"
 }
 
 variable "dashboard_user_arns" {

@@ -113,7 +113,7 @@ def create_vector_index():
                     'metadata': {'type': 'text'},
                     'embedding': {
                         'type': 'knn_vector',
-                        'dimension': 1536,
+                        'dimension': 1024,
                         'method': {
                             'name': 'hnsw',
                             'space_type': 'l2',
